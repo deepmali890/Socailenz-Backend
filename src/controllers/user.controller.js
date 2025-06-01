@@ -26,26 +26,26 @@ exports.register = async (req, res) => {
     try {
         // Basic validation
         if (!username || !email || !password || !phoneNumber) {
-            return res.status(400).json({ error: 'All fields are required.' });
+            return res.status(400).json({ message: 'All fields are required.' });
         }
 
         if (username.length < 3) {
-            return res.status(400).json({ error: 'Username must be at least 3 characters.' });
+            return res.status(400).json({ message: 'Username must be at least 3 characters.' });
         }
 
         if (!isValidEmail(email)) {
-            return res.status(400).json({ error: 'Invalid email format.' });
+            return res.status(400).json({ message: 'Invalid email format.' });
         }
 
         if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+            return res.status(400).json({ message: 'Password must be at least 6 characters.' });
         }
 
         // Check if username already exists ONLY
         const existingUser = await User.findOne({ username: username.trim() });
 
         if (existingUser) {
-            return res.status(400).json({ error: 'Username already taken.' });
+            return res.status(400).json({ message: 'Username already taken.' });
         }
 
         // Hash the password
@@ -71,7 +71,7 @@ exports.register = async (req, res) => {
 
     } catch (error) {
         console.error('Registration error:', error);
-        return res.status(500).json({ error: 'Server error. Try again later.' });
+        return res.status(500).json({ message: 'Server error. Try again later.' });
 
 
     }
