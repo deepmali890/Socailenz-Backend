@@ -66,7 +66,7 @@ exports.register = async (req, res) => {
         // 💌 Send welcome email
         await sendWelcomeEmail(user.email, user.username);
 
-        return res.status(201).json({ message: 'User registered successfully!' });
+        return res.status(201).json({ message: 'User registered successfully!', success:true });
 
 
     } catch (error) {
