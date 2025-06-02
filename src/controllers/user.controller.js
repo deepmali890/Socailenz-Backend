@@ -124,8 +124,9 @@ exports.login = async (req, res) => {
 
         res.cookie('token', token, {
             httpOnly: true,
-            sameSite: 'Strict',
-            maxAge: 24 * 60 * 60 * 1000 // 1 day
+            sameSite: 'None',  // ✅ Cross-origin allow karta hai
+            secure: true,      // ✅ Required if sameSite is None
+            maxAge: 24 * 60 * 60 * 1000
         });
 
         return res.status(200).json({
