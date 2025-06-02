@@ -94,39 +94,40 @@ exports.addNewPost = async (req, res) => {
 
 exports.getAllPosts = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
-
-        const posts = await Post.find()
-            .populate('author', 'username profilePicture')
-            .populate({
-                path: 'comments',
-                sort: { createdAt: -1 },
-                populate: {
-                    path: 'author',
-                    select: 'username profilePicture'
-                }
-            })
-            .populate('likes', 'username profilePicture')
-            .skip(skip)
-            .limit(limit)
-            .sort({ createdAt: -1 });
-
-        res.status(200).json({
-            success: true,
-            count: posts.length,
-            posts
-        });
-
+      const page = Math.max(parseInt(req.query.page) || 1, 1);
+      const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+      const skip = (page - 1) * limit;
+  
+      const posts = await Post.find()
+        .populate('author', 'username profilePicture')
+        .populate({
+          path: 'comments',
+          options: { sort: { createdAt: -1 } },
+          populate: {
+            path: 'author',
+            select: 'username profilePicture',
+          },
+        })
+        .populate('likes', 'username profilePicture')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+  
+      res.status(200).json({
+        success: true,
+        count: posts.length,
+        currentPage: page,
+        posts,
+      });
     } catch (error) {
-        console.error('Error in getAllPosts:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server Error'
-        });
+      console.error('❌ Error in getAllPosts:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server Error',
+      });
     }
-}
+  };
+  
 
 exports.getUserPost = async (req, res) => {
     try {
