@@ -83,19 +83,19 @@ exports.login = async (req, res) => {
     try {
         // Field check
         if (!username || !password) {
-            return res.status(400).json({ error: 'Username and password are required.' });
+            return res.status(400).json({ message: 'Username and password are required.' });
         }
 
         const user = await User.findOne({ username: username.trim() });
 
         if (!user) {
-            return res.status(404).json({ error: 'User not found. Please register.' });
+            return res.status(404).json({ message: 'User not found. Please register.' });
         }
 
         // Check password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid credentials.' });
+            return res.status(401).json({ message: 'Invalid credentials.' });
         }
 
         const newUser = new User({
@@ -110,7 +110,8 @@ exports.login = async (req, res) => {
             followers: user.followers,
             following: user.following,
             posts: user.posts,
-            dateOfBirth: user.dateOfBirth
+            dateOfBirth: user.dateOfBirth,
+            profilePicture: user.profilePicture
 
         })
 
@@ -136,7 +137,7 @@ exports.login = async (req, res) => {
 
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(500).json({ message: 'Internal Server Error' });
 
 
     }
@@ -151,7 +152,7 @@ exports.logout = async (req, res) => {
         })
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(500).json({ message: 'Internal Server Error' });
     }
 
 }
