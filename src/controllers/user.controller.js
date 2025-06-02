@@ -131,7 +131,7 @@ exports.login = async (req, res) => {
             message: `Welcome back ${user.username}!`,
             token,
             success: true,
-            newUser
+            user: newUser
         });
 
     } catch (error) {
