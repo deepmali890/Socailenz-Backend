@@ -12,8 +12,9 @@ router.get('/user/:userId/posts', protectRoute, postController.getUserPost)
 router.delete('/posts/:postId/deletePost', protectRoute, postController.deletePost)
 
 // like/unlike logic
-router.post('/posts/:postId/like', protectRoute, postController.likePost)
-router.get('/posts/likes', protectRoute, postController.allLikedPostByUser)
+router.get('/:postId/like', protectRoute, postController.likepost)
+router.get('/:postId/dislike', protectRoute, postController.disLikePost)
+router.get('/likes', protectRoute, postController.allLikedPostByUser)
 
 // coments 
 router.post('/posts/:postId/comment', protectRoute, postController.addComment)

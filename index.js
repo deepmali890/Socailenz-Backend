@@ -52,9 +52,9 @@ app.use(express.json());
 app.use(cookieParser());
 
 // Routes
-app.use('/api/user', userRoutes);
-app.use('/api/post', postRoutes);
-app.use('/api/message', messageRoutes);
+app.use('/api/v1/user', userRoutes);
+app.use('/api/v1/post', postRoutes);
+app.use('/api/v1/message', messageRoutes);
 
 // Health check
 app.get("/", (req, res) => {

@@ -11,10 +11,6 @@ exports.addNewPost = async (req, res) => {
         const { caption, location } = req.body;
         const author = req.user._id;
 
-        if (!caption) {
-            return res.status(400).json({ message: "Caption is required" });
-        }
-
         const imagesFiles = req.files && req.files.post ? req.files.post : [];
         const musicFile = req.files && req.files.music ? req.files.music[0] : null;
 
@@ -70,19 +66,23 @@ exports.addNewPost = async (req, res) => {
             author
         });
 
-        const response = await post.save();
+        await post.save();
 
         // Add this part to update user's posts array:
-        await User.findByIdAndUpdate(author, {
-            $push: { posts: response._id }
-        });
+        const user = await User.findById(author);
+        if (user) {
+            user.posts.push(post._id);
+            await user.save();
+        }
+
+        await post.populate({ path: 'author', select: 'username profilePicture' });
+
 
         return res.status(201).json({
             success: true,
             message: 'Post created successfully!',
-            post: response
+            post
         });
-
 
     } catch (error) {
         console.log(error)
@@ -94,40 +94,43 @@ exports.addNewPost = async (req, res) => {
 
 exports.getAllPosts = async (req, res) => {
     try {
-      const page = Math.max(parseInt(req.query.page) || 1, 1);
-      const limit = Math.min(parseInt(req.query.limit) || 10, 100);
-      const skip = (page - 1) * limit;
-  
-      const posts = await Post.find()
-        .populate('author', 'username profilePicture')
-        .populate({
-          path: 'comments',
-          options: { sort: { createdAt: -1 } },
-          populate: {
-            path: 'author',
-            select: 'username profilePicture',
-          },
-        })
-        .populate('likes', 'username profilePicture')
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 });
-  
-      res.status(200).json({
-        success: true,
-        count: posts.length,
-        currentPage: page,
-        posts,
-      });
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+        const skip = (page - 1) * limit;
+
+        const posts = await Post.find()
+            .populate({
+                path: 'author',
+                select: 'username profilePicture'
+            })
+            .populate({
+                path: 'comments',
+                options: { sort: { createdAt: -1 } },
+                populate: {
+                    path: 'author',
+                    select: 'username profilePicture',
+                },
+            })
+            .populate('likes', 'username profilePicture')
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: posts.length,
+            currentPage: page,
+            posts,
+        });
     } catch (error) {
-      console.error('❌ Error in getAllPosts:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Server Error',
-      });
+        console.error('❌ Error in getAllPosts:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server Error',
+        });
     }
-  };
-  
+};
+
 
 exports.getUserPost = async (req, res) => {
     try {
@@ -136,7 +139,10 @@ exports.getUserPost = async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
         const posts = await Post.find({ author: authorId })
-            .populate('author', 'username profilePicture')
+            .populate({
+                path: 'author',
+                select: 'username profilePicture'
+            })
             .populate({
                 path: 'comments',
                 sort: { createdAt: -1 },
@@ -166,12 +172,12 @@ exports.getUserPost = async (req, res) => {
 
 exports.updatePostByUser = async (req, res) => { }
 
-exports.likePost = async (req, res) => {
+
+exports.likepost = async (req, res) => {
     try {
         const postId = req.params.postId;
         const userId = req.user._id;
 
-        // Find the post and populate author
         const post = await Post.findById(postId).populate('author');
         if (!post) {
             return res.status(404).json({
@@ -180,54 +186,127 @@ exports.likePost = async (req, res) => {
             });
         }
 
-        // Check if user already liked this post
-        const alreadyLiked = post.likes.includes(userId);
-
-        if (alreadyLiked) {
-            // Unlike: remove userId from likes
-            post.likes = post.likes.filter(id => id.toString() !== userId.toString());
-        } else {
-            // Like: add userId to likes
-            post.likes.push(userId);
-        }
-
-        // Send Notification only if the user is not liking their own post
-        if (userId.toString() !== post.author._id.toString()) {
-            const notification = new Notification({
-                sender: userId,
-                receiver: post.author._id,
-                post: postId,
-                type: 'like',
-                message: `${req.user.username} liked your post.`
-            });
-            await notification.save();
-            console.log(notification)
-
-            // Emit real-time notification if using socket.io
-            if (req.app.get('io')) {
-                req.app.get('io').to(post.author._id.toString()).emit('newNotification', {
-                    type: 'like',
-                    sender: req.user.username,
-                    postId,
-                    message: `${req.user.username} liked your post.`
-                });
-            }
-        }
-
+        // like logic started
+        await post.updateOne({ $addToSet: { likes: userId } });
         await post.save();
+
+        // TODO : send notification to the user who posted the post
 
         return res.status(200).json({
             success: true,
-            message: alreadyLiked ? 'Post unliked' : 'Post liked',
+            message: 'Post liked',
             likesCount: post.likes.length,
-            liked: !alreadyLiked
+            liked: true
         });
-
+        
     } catch (error) {
-        console.error('Error in likePost:', error);
-        res.status(500).json({ success: false, message: 'Server error' });
+        console.error('Error in likepost:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+        
     }
-};
+}
+
+exports.disLikePost = async (req, res) => {
+    try {
+        const postId = req.params.postId;
+        const userId = req.user._id;
+
+        const post = await Post.findById(postId).populate('author');
+        if (!post) {
+            return res.status(404).json({
+                success: false,
+                message: 'Post not found'
+            });
+        }
+
+        // like logic started
+        await post.updateOne({ $pull: { likes: userId } });
+        await post.save();
+
+        // TODO : send notification to the user who posted the post
+
+        return res.status(200).json({
+            success: true,
+            message: 'Post Disliked',
+            likesCount: post.likes.length,
+            liked: true
+        });
+        
+    } catch (error) {
+        console.error('Error in likepost:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+        
+    }
+}
+
+// exports.likePost = async (req, res) => {
+//     try {
+//         const postId = req.params.postId;
+//         const userId = req.user._id;
+
+//         // Find the post and populate author
+//         const post = await Post.findById(postId).populate('author');
+//         if (!post) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'Post not found'
+//             });
+//         }
+
+//         // Check if user already liked this post
+//         const alreadyLiked = post.likes.includes(userId);
+
+//         if (alreadyLiked) {
+//             // Unlike: remove userId from likes
+//             post.likes = post.likes.filter(id => id.toString() !== userId.toString());
+//         } else {
+//             // Like: add userId to likes
+//             post.likes.push(userId);
+//         }
+
+//         // Send Notification only if the user is not liking their own post
+//         if (userId.toString() !== post.author._id.toString()) {
+//             const notification = new Notification({
+//                 sender: userId,
+//                 receiver: post.author._id,
+//                 post: postId,
+//                 type: 'like',
+//                 message: `${req.user.username} liked your post.`
+//             });
+//             await notification.save();
+//             console.log(notification)
+
+//             // Emit real-time notification if using socket.io
+//             if (req.app.get('io')) {
+//                 req.app.get('io').to(post.author._id.toString()).emit('newNotification', {
+//                     type: 'like',
+//                     sender: req.user.username,
+//                     postId,
+//                     message: `${req.user.username} liked your post.`
+//                 });
+//             }
+//         }
+
+//         await post.save();
+
+//         return res.status(200).json({
+//             success: true,
+//             message: alreadyLiked ? 'Post unliked' : 'Post liked',
+//             likesCount: post.likes.length,
+//             liked: !alreadyLiked
+//         });
+
+//     } catch (error) {
+//         console.error('Error in likePost:', error);
+//         res.status(500).json({ success: false, message: 'Server error' });
+//     }
+// };
 
 exports.allLikedPostByUser = async (req, res) => {
     try {
@@ -259,9 +338,9 @@ exports.allLikedPostByUser = async (req, res) => {
             .populate('likes', 'username profilePicture')
             .sort({ createdAt: -1 });
 
-            if( likedPosts.length === 0) {
-                return res.status(200).json({ success: true, message: 'No liked posts found ', likedPosts: [] });
-            }
+        if (likedPosts.length === 0) {
+            return res.status(200).json({ success: true, message: 'No liked posts found ', likedPosts: [] });
+        }
 
         return res.status(200).json({
             success: true,
@@ -301,7 +380,7 @@ exports.addComment = async (req, res) => {
         }
 
         // create comment
-        const comment = new Comment({
+        const comment = await Comment.create    ({
             text,
             author: userId,
             post: postId
@@ -316,29 +395,31 @@ exports.addComment = async (req, res) => {
         await post.save();
 
         // Send notification to post author (not to self)
-        if (userId.toString() !== post.author._id.toString()) {
-            const notification = new Notification({
-                sender: userId,
-                receiver: post.author._id,
-                post: postId,
-                type: 'comment',
-                message: `${req.user.username} commented on your post.`
-            });
+        // if (userId.toString() !== post.author._id.toString()) {
+        //     const notification = new Notification({
+        //         sender: userId,
+        //         receiver: post.author._id,
+        //         post: postId,
+        //         type: 'comment',
+        //         message: `${req.user.username} commented on your post.`
+        //     });
 
-            await notification.save();
+        //     await notification.save();
 
-            if (req.app.get('io')) {
-                req.app.get('io').to(post.author._id.toString()).emit('newNotification', {
-                    type: 'comment',
-                    sender: req.user.username,
-                    postId,
-                    message: `${req.user.username} commented on your post.`
-                });
-            }
-        }
+        //     if (req.app.get('io')) {
+        //         req.app.get('io').to(post.author._id.toString()).emit('newNotification', {
+        //             type: 'comment',
+        //             sender: req.user.username,
+        //             postId,
+        //             message: `${req.user.username} commented on your post.`
+        //         });
+        //     }
+        // }
+
+
         return res.status(201).json({
             success: true,
-            message: 'Comment added successfully',
+            message: 'Comment added ',
             comment
         });
     } catch (error) {
@@ -361,6 +442,8 @@ exports.getAllCommentsByPost = async (req, res) => {
         const comments = await Comment.find({ post: postId })
             .populate('author', 'username profilePicture')
             .sort({ createdAt: -1 });
+
+            if(!comments) return res.status(404).json({ success: false, message: 'No comments found' });
 
         return res.status(200).json({
             success: true,

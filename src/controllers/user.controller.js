@@ -66,7 +66,7 @@ exports.register = async (req, res) => {
         // 💌 Send welcome email
         await sendWelcomeEmail(user.email, user.username);
 
-        return res.status(201).json({ message: 'User registered successfully!', success:true });
+        return res.status(201).json({ message: 'User registered successfully!', success: true });
 
 
     } catch (error) {
@@ -98,6 +98,27 @@ exports.login = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials.' });
         }
 
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user._id, username: user.username },
+            process.env.JWT_SECRET_KEY,
+            { expiresIn: '7d' } // 1 week token validity
+        );
+
+        // populate each post if in the post array
+        const populatedPosts = await Promise.all(
+            user.posts.map(async (postId) => {
+              const post = await Post.findById(postId);
+              if (post && post.author && post.author.equals(user._id)) {
+                return post;
+              }
+              return null;
+            })
+          );
+          
+          const filteredPosts = populatedPosts.filter(post => post !== null);
+          
+
         const newUser = new User({
             _id: user._id,
             username: user.username,
@@ -109,18 +130,13 @@ exports.login = async (req, res) => {
             location: user.location,
             followers: user.followers,
             following: user.following,
-            posts: user.posts,
+            posts: filteredPosts,
             dateOfBirth: user.dateOfBirth,
             profilePicture: user.profilePicture
 
         })
 
-        // Generate JWT token
-        const token = jwt.sign(
-            { userId: user._id, username: user.username },
-            process.env.JWT_SECRET_KEY,
-            { expiresIn: '7d' } // 1 week token validity
-        );
+
 
         res.cookie('token', token, {
             httpOnly: true,
