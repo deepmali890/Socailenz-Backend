@@ -385,73 +385,43 @@ exports.allLikedPostByUser = async (req, res) => {
 
 exports.addComment = async (req, res) => {
     try {
-        const postId = req.params.postId;
-        const userId = req.user._id;
-
-        const { text } = req.body;
-
-        // Validate text
-        if (!text || text.trim() === '') {
-            return res.status(400).json({ success: false, message: 'Comment text is required' });
-        }
-
-
-        // find the post 
-        const post = await Post.findById(postId);
-        if (!post) {
-            return res.status(404).json({
-                success: false, message: 'Post not found'
-            });
-        }
-
-        // create comment
-        const comment = await Comment.create({
-            text,
-            author: userId,
-            post: postId
-        }).populate({
-            path: 'author',
-            select: 'username, profilePicture'
-        })
-        await comment.save();
-
-        // Add comment to the post
-        post.comments.push(comment._id);
-        await post.save();
-
-        // Send notification to post author (not to self)
-        // if (userId.toString() !== post.author._id.toString()) {
-        //     const notification = new Notification({
-        //         sender: userId,
-        //         receiver: post.author._id,
-        //         post: postId,
-        //         type: 'comment',
-        //         message: `${req.user.username} commented on your post.`
-        //     });
-
-        //     await notification.save();
-
-        //     if (req.app.get('io')) {
-        //         req.app.get('io').to(post.author._id.toString()).emit('newNotification', {
-        //             type: 'comment',
-        //             sender: req.user.username,
-        //             postId,
-        //             message: `${req.user.username} commented on your post.`
-        //         });
-        //     }
-        // }
-
-
-        return res.status(201).json({
-            success: true,
-            message: 'Comment added ',
-            comment
-        });
+      const postId = req.params.postId;
+      const userId = req.user._id;
+      const { text } = req.body;
+  
+      if (!text || text.trim() === '') {
+        return res.status(400).json({ success: false, message: 'Comment text is required' });
+      }
+  
+      const post = await Post.findById(postId);
+      if (!post) {
+        return res.status(404).json({ success: false, message: 'Post not found' });
+      }
+  
+      // Create comment first
+      let comment = await Comment.create({
+        text,
+        author: userId,
+        post: postId
+      });
+  
+      // Then populate the comment author
+      comment = await comment.populate('author', 'username profilePicture');
+  
+      post.comments.push(comment._id);
+      await post.save();
+  
+      return res.status(201).json({
+        success: true,
+        message: comment
+      });
+  
     } catch (error) {
-        console.error('Error in addComment:', error);
-        return res.status(500).json({ success: false, message: 'Server error' });
+      console.error('Error in addComment:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
     }
-}
+  };
+  
 
 exports.getAllCommentsByPost = async (req, res) => {
     try {
