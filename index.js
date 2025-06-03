@@ -12,7 +12,7 @@ const messageRoutes = require('./src/routes/message.routes');
 const app = express();
 
 const corsOptions = {
-  origin: "http://localhost:5173",
+  origin: "http://localhost:5173, https://socialenz.netlify.app/ ",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -24,7 +24,7 @@ const server = http.createServer(app); // ✅ Wrap express in http server
 // ✅ Create Socket.IO server
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173", // your frontend
+    origin: "http://localhost:5173  https://socialenz.netlify.app/", // your frontend
     methods: ["GET", "POST"],
     credentials: true,
   }
