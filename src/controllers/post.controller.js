@@ -173,8 +173,9 @@ exports.getUserPost = async (req, res) => {
 exports.updatePostByUser = async (req, res) => { }
 
 
-// Like Post
-exports.likepost = async (req, res) => {
+// controllers/post.controller.js
+
+exports.toggleLikePost = async (req, res) => {
     try {
       const postId = req.params.postId;
       const userId = req.user._id;
@@ -184,47 +185,91 @@ exports.likepost = async (req, res) => {
         return res.status(404).json({ success: false, message: 'Post not found' });
       }
   
-      await Post.updateOne({ _id: postId }, { $addToSet: { likes: userId } });
-      const updatedPost = await Post.findById(postId);
+      // Check if user already liked the post
+      const hasLiked = post.likes.includes(userId);
   
-      return res.status(200).json({
-        success: true,
-        message: 'Post liked',
-        likesCount: updatedPost.likes.length,
-        liked: true
-      });
-    } catch (error) {
-      console.error('Error in likepost:', error);
-      return res.status(500).json({ success: false, message: 'Server error' });
-    }
-  };
-  
-// Dislike Post
-exports.disLikePost = async (req, res) => {
-    try {
-      const postId = req.params.postId;
-      const userId = req.user._id;
-  
-      const post = await Post.findById(postId);
-      if (!post) {
-        return res.status(404).json({ success: false, message: 'Post not found' });
+      let updatedPost;
+      if (hasLiked) {
+        // If liked, unlike (remove userId from likes array)
+        updatedPost = await Post.findByIdAndUpdate(
+          postId,
+          { $pull: { likes: userId } },
+          { new: true }
+        );
+      } else {
+        // If not liked, add like
+        updatedPost = await Post.findByIdAndUpdate(
+          postId,
+          { $addToSet: { likes: userId } },
+          { new: true }
+        );
       }
   
-      await Post.updateOne({ _id: postId }, { $pull: { likes: userId } });
-      const updatedPost = await Post.findById(postId);
-  
       return res.status(200).json({
         success: true,
-        message: 'Post disliked',
+        message: hasLiked ? 'Post unliked' : 'Post liked',
         likesCount: updatedPost.likes.length,
-        liked: false
+        liked: !hasLiked,
       });
     } catch (error) {
-      console.error('Error in disLikePost:', error);
+      console.error('Error in toggleLikePost:', error);
       return res.status(500).json({ success: false, message: 'Server error' });
     }
   };
   
+
+// // Like Post
+// exports.likepost = async (req, res) => {
+//     try {
+//         const postId = req.params.postId;
+//         const userId = req.user._id;
+
+//         const post = await Post.findById(postId);
+//         if (!post) {
+//             return res.status(404).json({ success: false, message: 'Post not found' });
+//         }
+
+//         await Post.updateOne({ _id: postId }, { $addToSet: { likes: userId } });
+//         const updatedPost = await Post.findById(postId);
+
+//         return res.status(200).json({
+//             success: true,
+//             message: 'Post liked',
+//             likesCount: updatedPost.likes.length,
+//             liked: true
+//         });
+//     } catch (error) {
+//         console.error('Error in likepost:', error);
+//         return res.status(500).json({ success: false, message: 'Server error' });
+//     }
+// };
+
+// // Dislike Post
+// exports.disLikePost = async (req, res) => {
+//     try {
+//         const postId = req.params.postId;
+//         const userId = req.user._id;
+
+//         const post = await Post.findById(postId);
+//         if (!post) {
+//             return res.status(404).json({ success: false, message: 'Post not found' });
+//         }
+
+//         await Post.updateOne({ _id: postId }, { $pull: { likes: userId } });
+//         const updatedPost = await Post.findById(postId);
+
+//         return res.status(200).json({
+//             success: true,
+//             message: 'Post disliked',
+//             likesCount: updatedPost.likes.length,
+//             liked: false
+//         });
+//     } catch (error) {
+//         console.error('Error in disLikePost:', error);
+//         return res.status(500).json({ success: false, message: 'Server error' });
+//     }
+// };
+
 // exports.likePost = async (req, res) => {
 //     try {
 //         const postId = req.params.postId;
@@ -360,7 +405,7 @@ exports.addComment = async (req, res) => {
         }
 
         // create comment
-        const comment = await Comment.create    ({
+        const comment = await Comment.create({
             text,
             author: userId,
             post: postId
@@ -423,7 +468,7 @@ exports.getAllCommentsByPost = async (req, res) => {
             .populate('author', 'username profilePicture')
             .sort({ createdAt: -1 });
 
-            if(!comments) return res.status(404).json({ success: false, message: 'No comments found' });
+        if (!comments) return res.status(404).json({ success: false, message: 'No comments found' });
 
         return res.status(200).json({
             success: true,
